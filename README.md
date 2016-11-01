@@ -2,6 +2,7 @@
 Python implementation of a client which communicates with the Pointwise Glyph Server.
 
 Example:
+
     from pointwise import GlyphClient, GlyphError
 
     glf = GlyphClient()
