@@ -231,12 +231,12 @@ class GlyphClient:
         """
         Helper function to recv size bytes or return None if EOF is hit
         """
-        data = ''
+        data = bytearray()
         while len(data) < size:
             packet = self._socket.recv(size - len(data))
             if not packet:
                 return None
-            data += packet
+            data.extend(packet)
         return data
 
 
