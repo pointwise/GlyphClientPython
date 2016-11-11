@@ -2,9 +2,8 @@
 
 Python implementation of a client which communicates with the Pointwise Glyph Server.
 
-Example usage:
+Example usage::
 
-```python
     from pointwise import GlyphClient, GlyphError
 
     glf = GlyphClient()
@@ -21,4 +20,3 @@ Example usage:
         print('Glyph Server authentication failed')
     else:
         print('Failed to connect to the Glyph Server')
-```
