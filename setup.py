@@ -7,7 +7,7 @@ def readme():
         return f.read()
 
 setup(name='pointwise-glyph-client',
-      version='1.0.2',
+      version='1.0.3',
       description='Python client to Pointwise Glyph Server',
       url='http://github.com/pointwise/GlyphClientPython',
       packages=['pointwise'])
