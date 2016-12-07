@@ -94,7 +94,7 @@ class GlyphClient:
         self._socket = self._connect(host, port)
         while self._socket is None and retries > 0:
             retries -= 1
-            time.sleep(0) # sleep to allow events to process
+            time.sleep(0.1) # sleep for a bit before retry
             self._socket = self._connect(host, port)
 
         if self._socket is None:
