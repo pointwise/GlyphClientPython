@@ -215,7 +215,7 @@ class GlyphClient:
         if message_length is None:
             return None
 
-        message_length = struct.unpack('!I', message_length)[0]
+        message_length = struct.unpack('!I', bytes(message_length))[0]
         if message_length == 0:
             return ('', '')
 
