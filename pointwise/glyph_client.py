@@ -186,6 +186,7 @@ class GlyphClient:
             af, socktype, proto, canonname, sa = res
             try:
                 s = socket.socket(af, socktype, proto)
+                s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
             except (socket.error, OSError) as msg:
                 s = None
                 continue
