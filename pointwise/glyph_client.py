@@ -32,7 +32,7 @@ Example:
         print('Failed to connect to the Glyph Server')
 """
 
-import os, time, socket, struct
+import os, time, socket, struct, errno, sys
 
 class GlyphError(Exception):
     """ This exception is raised when a command passed to the Glyph Server
@@ -290,14 +290,31 @@ class GlyphClient(object):
 
     def close(self):
         """ Close the connection with the Glyph server """
+        #if self._socket and not self._socket.fileno() == -1:
         if self._socket:
-            self._socket.close()
+            if not self._socket.fileno() == -1:
+                try:
+                    self._socket.shutdown(socket.SHUT_RDWR)
+                except:
+                    None
+                self._socket.close()
+                del self._socket
             self._socket = None
 
             if hasattr(self, "_server") and self._server is not None:
                 self._server.terminate()
+                self._server.wait()
                 if self._othread is not None:
-                    self._othread.join(0.1)
+                    self._othread.join(0.5)
+                    del self._othread
+                if self._server.stdin is not None:
+                    self._server.stdin.close()
+                if self._server.stdout is not None:
+                    self._server.stdout.close()
+                if self._server.stderr is not None:
+                    self._server.stderr.close()
+                del self._server
+                self._server = None
 
 
     def disconnect(self):
@@ -335,9 +352,20 @@ class GlyphClient(object):
             raise GlyphError(command,
                     'The client is not connected to a Glyph Server')
 
-        self._send(type, command)
-        response = self._recv()
+        try:
+            self._send(type, command)
+            response = self._recv()
+        except socket.error as e:
+            # Python 3: BrokenPipeError
+            if e.errno == errno.EPIPE:
+                raise GlyphError(command, 'The Glyph Server connection is closed')
+            else:
+                raise
+
         if response is None:
+            if not self._socket.fileno() == -1:
+                # socket is closed, assume command ended server session
+                return None
             raise GlyphError(command, 'No response from the Glyph Server')
 
         type, payload = response
@@ -361,6 +389,8 @@ class GlyphClient(object):
         if message_length is None:
             return None
 
+        # Python 2: 'bytes' is an alias for 'str'
+        # Python 3: 'bytes' is an immutable bytearray
         message_length = struct.unpack('!I', bytes(message_length))[0]
         if message_length == 0:
             return ('', '')
@@ -369,8 +399,9 @@ class GlyphClient(object):
         if message_bytes is None:
             return None
 
-        type = message_bytes[0:8].strip().decode('utf-8')
-        payload = message_bytes[8:].decode('utf-8')
+        # Python 2: convert decoded bytes (type 'unicode') to string (type 'str')
+        type = str(message_bytes[0:8].decode('utf-8')).strip()
+        payload = str(message_bytes[8:].decode('utf-8'))
         return (type, payload)
 
 
@@ -394,17 +425,22 @@ class GlyphClient(object):
         self._othread = None
         try:
             # Find tclsh in the current path
-            from shutil import which
             tclsh = os.environ.get('PWI_GLYPH_SERVER_TCLSH', 'tclsh')
-            tclsh = which(tclsh)
+            import shutil
+            if not hasattr(shutil, 'which'):
+                # Python 3: shutil.which exists
+                shutil.which = __which__
+            tclsh = shutil.which(tclsh)
             if tclsh is None:
                 raise GlyphError('server', 'tclsh not found in path')
 
             # find an open port
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as tsock:
+            try:
+                tsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 tsock.settimeout(0)
                 tsock.bind(('', 0))
                 self._port = tsock.getsockname()[1]
+            finally:
                 tsock.close()
                 time.sleep(0.1)
 
@@ -414,10 +450,14 @@ class GlyphClient(object):
                 self._server = subprocess.Popen(tclsh, stdin=subprocess.PIPE, \
                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             else:
-                self._server = subprocess.Popen(tclsh, stdin=subprocess.PIPE, \
-                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                if hasattr(subprocess, 'DEVNULL'):
+                    # Python 3: subprocess.DEVNULL exists
+                    self._server = subprocess.Popen(tclsh, stdin=subprocess.PIPE, \
+                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                else:
+                    self._server = subprocess.Popen(tclsh, stdin=subprocess.PIPE)
 
-            self._server.stdin.write(bytes((
+            self._server.stdin.write(bytearray((
                 "package require PWI_Glyph 2\n" +
                 "pw::Script setServerPort %d\n" +
                 "puts \"Server: [pw::Application getVersion]\"\n" +
@@ -439,20 +479,80 @@ class GlyphClient(object):
                     def run(self):
                         try:
                             for line in iter(self._ios.readline, b''):
-                                self._cb(line.decode('utf-8'))
+                                # Python 2: convert decoded bytes to 'str'
+                                self._cb(str(line.decode('utf-8')))
                         except Exception as ex:
                             self._error = str(ex)
+
+                    #def __del__(self):
+                    #    self._ios.close()
 
                 self._othread = ReaderThread(self._server.stdout, callback)
                 self._othread.start()
         except Exception as ex:
             if self._server is not None:
                 self._server.kill()
+                self._server.wait()
             if self._othread is not None:
                 self._othread.join(0.5)
                 if callback is not None and self._othread._error is not None:
                     callback(self._othread._error)
             raise
+
+
+def __which__(cmd, mode=os.F_OK | os.X_OK, path=None):
+    """Given a command, mode, and a PATH string, return the path which
+       conforms to the given mode on the PATH, or None if there is no such
+       file.
+       `mode` defaults to os.F_OK | os.X_OK. `path` defaults to the result
+       of os.environ.get("PATH"), or can be overridden with a custom search
+       path.
+
+       Courtesy Python 3.3 source code, for Python 2.x backward compatibility.
+    """
+
+    # Check that a given file can be accessed with the correct mode.
+    # Additionally check that `file` is not a directory, as on Windows
+    # directories pass the os.access check.
+    def __access_check__(fn, mode):
+        return (os.path.exists(fn) and os.access(fn, mode) and
+            not os.path.isdir(fn))
+
+    # Short circuit. If we're given a full path which matches the mode
+    # and it exists, we're done here.
+    if __access_check__(cmd, mode):
+        return cmd
+
+    path = (path or os.environ.get("PATH", os.defpath)).split(os.pathsep)
+
+    if sys.platform == "win32":
+        # The current directory takes precedence on Windows.
+        if os.curdir not in path:
+            path.insert(0, os.curdir)
+
+        # PATHEXT is necessary to check on Windows.
+        pathext = os.environ.get("PATHEXT", "").split(os.pathsep)
+        # See if the given file matches any of the expected path extensions.
+        # This will allow us to short circuit when given "python.exe".
+        matches = [cmd for ext in pathext if cmd.lower().endswith(ext.lower())]
+        # If it does match, only test that one, otherwise we have to try
+        # others.
+        files = [cmd] if matches else [cmd + ext.lower() for ext in pathext]
+    else:
+        # On other platforms you don't have things like PATHEXT to tell you
+        # what file suffixes are executable, so just pass on cmd as-is.
+        files = [cmd]
+
+    seen = set()
+    for dir in path:
+        dir = os.path.normcase(dir)
+        if dir not in seen:
+            seen.add(dir)
+            for thefile in files:
+                name = os.path.join(dir, thefile)
+                if __access_check__(name, mode):
+                    return name
+    return None
 
 #
 # DISCLAIMER:

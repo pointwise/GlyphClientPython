@@ -639,8 +639,7 @@ class Quaternion(object):
             m[15] = 1.0
 
         # Python order
-        m.shape = [4,4]
-        m = m.transpose()
+        m = m.reshape((4,4)).transpose()
 
         return Transform(m)
 
@@ -956,9 +955,9 @@ class Transform(object):
             self.xform_ = matrix.A
             return
         elif isinstance(matrix, np.ndarray):
-            self.xform_ = np.matrix(matrix).A
+            self.xform_ = matrix
             if matrix.size == 16:
-                self.xform_.shape = [4,4]
+                self.xform_ = self.xform_.reshape((4,4))
             return
         elif not isinstance(matrix, (list, tuple)):
             raise ValueError("Invalid argument")
@@ -968,11 +967,9 @@ class Transform(object):
         # operations
         if len(matrix) == 4:
             # Assume a list/tuple of 4 lists/tuples
-            self.xform_ = np.matrix(matrix).transpose().A
+            self.xform_ = np.array(matrix).transpose()
         elif len(matrix) == 16:
-            self.xform_ = np.matrix(matrix)
-            self.xform_.shape = [4,4]
-            self.xform_ = self.xform_.transpose().A
+            self.xform_ = np.array(matrix).reshape((4,4)).transpose()
         else:
             raise ValueError("Invalid xform matrix")
 
@@ -1010,9 +1007,9 @@ class Transform(object):
         """
         if not isinstance(offset, Vector3):
             offset = Vector3(offset)
-        col = np.matmul(self.xform_, np.array(tuple(offset.vector_) + (1.0,)))
-        xf = np.matrix(self.xform_)
-        np.matrix.put(xf, [3, 7, 11, 15], col)
+        col = np.dot(self.xform_, np.array(tuple(offset.vector_) + (1.0,)))
+        xf = np.array(self.xform_)
+        np.put(xf, [3, 7, 11, 15], col)
         return Transform(xf)
 
     @staticmethod
@@ -1035,7 +1032,7 @@ class Transform(object):
             axform = Transform.translation(anchor)
             axform = axform.rotate(axis, angle)
             axform = axform.translate(Vector3()-anchor)
-            return Transform(np.matmul(self.xform_, axform.xform_))
+            return Transform(np.dot(self.xform_, axform.xform_))
 
         # handle Cartesian rotations
         cartesian = False
@@ -1096,7 +1093,7 @@ class Transform(object):
         else:
             rxform = Quaternion(axis, angle).asTransform()
 
-        return Transform(np.matmul(self.xform_, rxform.xform_))
+        return Transform(np.dot(self.xform_, rxform.xform_))
 
     @staticmethod
     def scaling(scale, anchor=None):
@@ -1122,7 +1119,7 @@ class Transform(object):
             axform = Transform.translation(anchor)
             axform = axform.scale(scale)
             axform = axform.translate(Vector3()-anchor)
-            return Transform(np.matmul(self.xform_, axform.xform_))
+            return Transform(np.dot(self.xform_, axform.xform_))
 
         # transpose to make slicing easier
         xf = self.xform_.transpose()
@@ -1214,8 +1211,7 @@ class Transform(object):
         mat[14] = -2.0 * far * near * ifmn
 
         # Python order
-        mat.shape = [4,4]
-        mat = mat.transpose()
+        mat = mat.reshape((4,4)).transpose()
 
         return Transform(mat)
 
@@ -1259,10 +1255,9 @@ class Transform(object):
         mat[15] = 1.0
 
         # transpose back to Python order
-        mat.shape = [4,4]
-        mat = mat.transpose()
+        mat = mat.reshape((4,4)).transpose()
 
-        return Transform(np.matmul(self.xform_, mat))
+        return Transform(np.dot(self.xform_, mat))
 
     @staticmethod
     def stretching(anchor, start, end):
@@ -1308,17 +1303,15 @@ class Transform(object):
             mat[10] = factor * sDir.z * sDir.z
 
             # transpose back to Python order to apply translation
-            mat.shape = [4,4]
-            mat = mat.transpose()
+            mat = mat.reshape((4,4)).transpose()
 
             axform = Transform.translation(Vector3()-anchor)
-            mat = np.matmul(mat, axform.xform_)
+            mat = np.dot(mat, axform.xform_)
             axform = Transform.translation(anchor)
-            mat = np.matmul(axform.xform_, mat)
+            mat = np.dot(axform.xform_, mat)
 
             # Glyph order
-            mat = mat.transpose()
-            mat = mat.flatten()
+            mat = mat.transpose().flatten()
             # mat = np.ravel(mat)
             mat[ 0] += 1.0
             mat[ 5] += 1.0
@@ -1328,10 +1321,9 @@ class Transform(object):
             mat[14] -= anchor.z
 
             # Python order
-            mat.shape = [4,4]
-            mat = mat.transpose()
+            mat = mat.reshape((4,4)).transpose()
 
-            return Transform(np.matmul(self.xform_, mat))
+            return Transform(np.dot(self.xform_, mat))
         else:
             return Transform(self.xform_)
                 
@@ -1341,7 +1333,7 @@ class Transform(object):
         if not isinstance(vec, Vector3):
             vec = Vector3(vec)
         rw = np.array(tuple(vec.vector_) + (1.0,))
-        rw = np.matmul(self.xform_, rw)
+        rw = np.dot(self.xform_, rw)
         vec = np.array(rw[0:3])
         if rw[3] != 0.0:
             vec = vec / rw[3]
@@ -1366,7 +1358,7 @@ class Transform(object):
         if not isinstance(direct, Vector3):
             direct = Vector3(direct)
         rw = np.array(tuple(direct.vector_) + (0.0,))
-        rw = np.matmul(self.xform_, rw)
+        rw = np.dot(self.xform_, rw)
         direct = np.array(rw[0:3])
         if rw[3] != 0.0:
             direct = direct / rw[3]
@@ -1380,7 +1372,7 @@ class Transform(object):
         if not isinstance(normal, Vector3):
             normal = Vector3(normal)
         rw = np.array(tuple(normal.vector_) + (0.0,))
-        rw = np.matmul(np.linalg.inv(self.xform_).transpose(), rw)
+        rw = np.dot(np.linalg.inv(self.xform_).transpose(), rw)
         normal = np.array(rw[0:3])
         return Vector3(normal).normalize()
 
@@ -1397,7 +1389,7 @@ class Transform(object):
         if isinstance(other, Vector3):
             return self.apply(other)
         elif isinstance(other, Transform):
-            return Transform(np.matmul(self.xform_, other.xform_))
+            return Transform(np.dot(self.xform_, other.xform_))
         else:
             raise ValueError("Invalid argument")
 

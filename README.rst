@@ -4,7 +4,7 @@ Glyph API for Python
 This is a Python implementation of the Pointwise Glyph API. Glyph is
 implemented as a set of Tcl procedures that have an object-oriented
 feel. Pointwise supports non-Tcl scripting (or binary code) applications
-through a feature called “Glyph Server”, first avaialable in V18.0R1.
+through a feature called *Glyph Server*, first avaialable in V18.0R1.
 This API leverages some of the introspective features of the Python
 language to automatically convert Python expressions into Glyph (Tcl)
 command strings to be executed on the Glyph Server, and to convert the
@@ -17,12 +17,12 @@ available in Pointwise V18.2 and later.) The results from this command
 are returned as JSON structures that are subsequently processed and
 converted into Python number, string and special GlyphObj objects.
 
-The heart of this API are the GlyphObj and GlyphVar classes. All Glyph
-objects and classes are represented as instances of GlyphObj, which
+The core components of this API are the *GlyphObj* and *GlyphVar* classes.
+All Glyph objects and classes are represented as instances of GlyphObj, which
 provides transparent access to all Glyph actions as though they were
-implemented in Python. GlyphVar provides a way to set and access Tcl
-variables on the server, primarily for use with Glyph actions that
-accept Tcl variable names as arguments.
+implemented in Python. GlyphVar provides a way to set and access Tcl variables
+on the server, primarily for use with Glyph actions that accept Tcl variable
+names as arguments.
 
 Usage
 -----
@@ -65,12 +65,22 @@ Example Usage
 Usage Notes
 -----------
 
+Platform Support
+~~~~~~~~~~~~~~~~
+
+The Glyph API has been sufficiently tested with both Python 2.6+ and Python 3.3+
+on Windows and Linux. It has not been tested extensively on Mac OS/X. The API
+also depends on a widely-available third-party library called
+[numpy](http://www.numpy.org/). It is recommended that at least version 1.12
+be installed, but older versions may work as well.
+
+
 GlyphClient object
 ~~~~~~~~~~~~~~~~~~
 
-A GlyphClient implements only the client-server communication from the
+GlyphClient implements only the client-server communication from the
 Python script to a Pointwise server. It can be used completely
-independently from the GlyphAPI as it provides methods for connecting to
+independently from the Glyph API as it provides methods for connecting to
 a server, evaluating Tcl/Glyph expressions, retrieving the raw Tcl
 string results, and disconnecting from the server.
 
@@ -85,10 +95,16 @@ Example:
    with GlyphClient(port=2807) as glf:
        glf.eval("puts {Hello World}")
 
-GlyphClient can run a Glyph server automatically as a subprocess by
-specifying the port as zero. Note that this will consume a Pointwise
+GlyphClient can start a Glyph server automatically as a subprocess by
+specifying the port number as zero. Note that this will consume a Pointwise
 license, if one is available. Standard and error output from the server
 subprocess can be captured by specifying a callback function.
+
+Note that, in order to use port=0, the Pointwise installed version of 'tclsh'
+must be in the environment path variable, along with any other necessary
+environment, including LD_LIBRARY_PATH on non-Windows platforms.
+(LD_LIBRARY_PATH is typically set by the 'pointwise' launch script. Refer to
+that script for specific details.)
 
 Example:
 
@@ -109,12 +125,12 @@ Should produce:
 GlyphAPI object
 ~~~~~~~~~~~~~~~
 
-GlyphAPI extends the GlyphClient functionality by providing the
-transparent access needed to make Glyph calls in a very Pythonic manner.
-A GlyphAPI object should only be created by a connected GlyphClient
-object. Connections to multiple Pointwise servers are possible, and all
-Glyph actions invoked within the context of a GlyphAPI are done so on
-the associated server connection.
+GlyphAPI extends the GlyphClient functionality by providing the transparent
+access needed to make Glyph calls in a very Pythonic manner.  A GlyphAPI object
+should never be constructed directly, and only be created by a connected
+GlyphClient object. Connections to multiple Pointwise servers are possible, and
+all Glyph actions invoked within the context of a GlyphAPI are done so on the
+associated server connection.
 
 Example:
 
@@ -129,14 +145,14 @@ Example:
    con1 = pw1.GridEntity.getByName("con-1")
    con2 = pw2.GridEntity.getByNAme("con-2")
 
-   con1.join(con2) # Behavior undefined
+   con1.join(con2) # Behavior undefined!
 
 GlyphVar object
 ~~~~~~~~~~~~~~~
 
 A GlyphVar is required for Glyph actions that expect a Tcl variable name
 as an argument. These actions typically set the variable to some
-ancillary result value, independent of the action’s direct result. A
+ancillary result value, independent of the action's direct result. A
 GlyphVar object is not coupled to a specific GlyphClient connection, as
 it is used only in the context of a Glyph action in order to retrieve
 some result value stored in a Tcl variable. A GlyphVar may be assigned a
@@ -158,12 +174,12 @@ GlyphObj is the primary Python interface to Glyph classes, objects and
 their associated actions. A GlyphObj instance is created automatically
 in the following ways:
 
--  When the method name of a call to GlyphAPI matches a published Glyph
-   class name
+-  When the method name of a call to GlyphAPI matches the base name of a
+   published Glyph class name (**Application** for **pw::Application**)
 -  When the result of some Glyph action returns a Glyph function name
-   (object)
--  When a GlyphVar contains a Glyph function name (object)
--  When constructed directly using a Glyph function name (object)
+   (a Glyph object, such as **::pw::Connector_1**)
+-  When a GlyphVar's value contains a Glyph function name (Glyph object)
+-  When constructed directly using a Glyph function name (Glyph object)
 
 Examples:
 
@@ -188,18 +204,20 @@ Examples:
 Generating Glyph Actions Automatically
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Glyph actions are basically method invocations on either a Glyph class
-or a Glyph function (object). (These are called ‘functions’ because
-Glyph generates a mapping from a Tcl proc to an internal object in order
-to simulate object-oriented behavior in Glyph.) There are two types of
-actions: static actions and instance actions. Further, every Glyph class
-that can be instantiated directly has a static “create” action. So, by
-exploiting Python introspective features, the following syntaxes
-generates an associated Tcl/Glyph command:
+Glyph actions are method invocations on either a Glyph class or a Glyph
+function (object). (These are called "functions" because Glyph generates a
+mapping from a Tcl proc to an internal object as a way of simulating
+object-oriented behavior in Glyph. This is a common pattern in Tcl package
+implementations.) There are two types of actions: *static actions* and
+*instance actions*. Further, every Glyph object that can be instantiated
+directly in a script has a static "create" action. So, by exploiting Python
+language features, the following syntaxes generates an associated
+Tcl/Glyph command:
 
 -  A GlyphObj that represents a Glyph class that is called directly
-   becomes a “create” action call. Arguments can be passed to the create
-   action as needed.
+   (i.e., appears to be a Python constructor) becomes a "create" action
+   call. Arguments can be passed to these constructor-type calls as needed
+   and as allowed by the corresponding Glyph "create" action.
 -  A method call on a GlyphObj that represents a Glyph class is
    translated into a static action call on the Glyph class.
 -  A method call on a GlyphObj that represents a Glyph object is
@@ -224,38 +242,37 @@ Example:
 Passing Arguments and Flags to Glyph Actions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Many Glyph actions accept both positional and flag arguments. The Python
-equivalent of these are positional and *keyword* arguments, but there
-are some strict requirements that must be followed in order for the
-action commands to be generated correctly. All positional arguments must
-appear first in the Python method invocation, as is the requirement of
-the language, followed by all optional keyword arguments. GlyphObj
-converts all keyword arguments in the following way:
+Many Glyph actions accept both *positional* and *flag* arguments. The Python
+equivalent of these are, respectively, *positional* and *keyword* arguments,
+but there are some strict rules that must be followed in order for the
+corresponding Glyph action commands to be generated correctly. All positional
+arguments must appear first in the Python method invocation, as is the
+requirement of the language, followed by all optional keyword arguments.
+GlyphObj converts all keyword arguments in the following way:
 
--  If the keyword does not end in an underscore (‘\_’):
+-  If the keyword does not end in an underscore ("\_"):
 
-   -  If the keyword argument is False, the flag is not added to the
-      command
-   -  Otherwise, the keyword is prepended with a dash (‘-’) and added to
+   -  If the keyword argument is False, the flag is not added to the command
+   -  Otherwise, the keyword is prepended with a dash ("-") and added to
       the command. Then:
 
-      -  If the keyword argument is a bool and is True, no argument is
+      -  If the keyword argument is a **bool** and is **True**, no argument is
          added to the command
-      -  Otherwise, the keyword argument is added as a single element to
-         the command
+      -  Otherwise, the keyword argument value is added as a single element to
+         the Glyph command
 
--  If the keyword ends in an underscore:
+-  If the keyword ends in an underscore, special handling is used:
 
    -  The keyword is prepended with a dash, and the trailing underscore
       is removed, and the flag is added to the command. Then:
 
-      -  If the keyword argument is a list of values, each value is
-         added as a separate command argument. Note that embedded lists
-         will remain as lists in the Glyph action command.
-      -  Otherwise, the keyword argument is added to the command, even
+      -  If the keyword argument value is a list or tuple of values, each value is
+         added as a separate command argument. Note that any embedded list/tuple
+         will remain as a Tcl list in the Glyph action command.
+      -  Otherwise, the keyword argument value is added to the command, even
          if a boolean value.
 
-Note that any positional argument that is a list will be passed as a Tcl
+Note that any positional argument that is a list or tuple will be passed as a Tcl
 list in the command.
 
 Examples:
@@ -282,7 +299,7 @@ Glyph Objects as Context Managers
 
 In many cases it is convenient to use a GlyphObj that represents certain
 transient Glyph objects as Python context managers. Specifically, Glyph
-*Mode* and *Examine* objects are generally short-lived and are used in
+*Mode* and *Examine* objects are typically short-lived and are used in
 very specific contexts. For these Glyph object types only, context
 management is implemented in GlyphObj.
 
@@ -312,7 +329,7 @@ to perform vector algebra, extent box computation, transformation
 matrices, etc. To improve the overall usefulness and speed of this API,
 these classes were implemented directly in Python, rather than through
 the Glyph Server. Many of the mathematical vector and matrix operations
-are performed using the ‘numpy’ package. These utilty classes include,
+are performed using the "numpy" package. These utilty classes include,
 along with their Glyph counterparts:
 
 -  ``Vector2 - pwu::Vector2``
@@ -323,7 +340,7 @@ along with their Glyph counterparts:
 -  ``Extents - pwu::Extents``
 
 Nearly the complete set of functions documented at
-https://www.pointwise.com/glyph under the ‘Utilities’ section have been
+https://www.pointwise.com/glyph under the "Utilities" section have been
 implemented as Python classes.
 
 Example:
