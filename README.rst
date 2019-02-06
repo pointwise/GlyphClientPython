@@ -71,8 +71,10 @@ Platform Support
 The Glyph API has been sufficiently tested with both Python 2.6+ and Python 3.3+
 on Windows and Linux. It has not been tested extensively on Mac OS/X. The API
 also depends on a widely-available third-party library called
-[numpy](http://www.numpy.org/). It is recommended that at least version 1.12
+numpy_. It is recommended that at least version 1.12
 be installed, but older versions may work as well.
+
+.. _numpy: http://www.numpy.org/
 
 
 GlyphClient object
