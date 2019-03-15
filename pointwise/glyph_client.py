@@ -32,7 +32,7 @@ Example:
         print('Failed to connect to the Glyph Server')
 """
 
-import os, time, socket, struct, errno, sys
+import os, time, socket, struct, errno, sys, re
 
 class GlyphError(Exception):
     """ This exception is raised when a command passed to the Glyph Server
@@ -50,11 +50,12 @@ class GlyphClient(object):
         a server subprocess, initialize the GlyphClient with port = 0.
     """
 
-    def __init__(self, port=None, auth=None, host='localhost', callback=None):
+    def __init__(self, port=None, auth=None, version=None, host='localhost', callback=None):
         """ Initialize a GlyphClient object """
         self._port = port
         self._auth = auth
         self._host = host
+        self._version = version
 
         self._socket = None
         self._busy = False
@@ -116,6 +117,11 @@ class GlyphClient(object):
                     PWI_GLYPH_SERVER_AUTH, or an empty string if not defined.
                 host (str): the host name of the Glyph Server to connect to.
                     The default value is 'localhost'.
+                version (str): the Glyph version number to use for
+                    compatibility. The string should be of the form X.Y.Z
+                    where X, Y, and Z are positive integer values. The Y and
+                    Z values are optional and default to a zero value. A blank
+                    value always uses the current version. 
                 retries (int): the number of times to retry the connection
                     before giving up.
 
@@ -157,7 +163,27 @@ class GlyphClient(object):
         if rtype != 'READY':
             self.close()
         else:
+            problem = None
+            if self._version is not None:
+                try:
+                    self.control('version', self._version)
+                except Exception as excCode:
+                    problem = excCode
             self._serverVersion = self.eval('pw::Application getVersion')
+            if problem is not None:
+                m = re.search('Pointwise V(\d+).(\d+)', self._serverVersion)
+                if len(m.groups()) == 2:
+                    try:
+                        serverVers = int(m.groups()[0]) * 10 + \
+                            int(m.groups()[1])
+                        self._version = self.eval("package require PWI_Glyph")
+                    except:
+                        serverVers = 0
+                        self._version = None
+
+                    if serverVers >= 183:
+                        self.close()
+                        raise problem
 
         return self._socket is not None
 
@@ -458,7 +484,7 @@ class GlyphClient(object):
                     self._server = subprocess.Popen(tclsh, stdin=subprocess.PIPE)
 
             self._server.stdin.write(bytearray((
-                "package require PWI_Glyph 2\n" +
+                "package require PWI_Glyph\n" +
                 "pw::Script setServerPort %d\n" +
                 "puts \"Server: [pw::Application getVersion]\"\n" +
                 "while 1 { pw::Script processServerMessages }\n") %
