@@ -32,7 +32,7 @@ Example:
         print('Failed to connect to the Glyph Server')
 """
 
-import os, time, socket, struct, errno, sys, re
+import os, time, socket, struct, errno, sys, re, platform
 
 class GlyphError(Exception):
     """ This exception is raised when a command passed to the Glyph Server
@@ -176,11 +176,8 @@ class GlyphClient(object):
                     try:
                         serverVers = int(m.groups()[0]) * 10 + \
                             int(m.groups()[1])
-                        self._version = self.eval("package require PWI_Glyph")
                     except:
                         serverVers = 0
-                        self._version = None
-
                     if serverVers >= 183:
                         self.close()
                         raise problem
@@ -450,15 +447,21 @@ class GlyphClient(object):
         self._server = None
         self._othread = None
         try:
-            # Find tclsh in the current path
-            tclsh = os.environ.get('PWI_GLYPH_SERVER_TCLSH', 'tclsh')
+            if platform.system() == 'Windows':
+                target = 'tclsh'
+                targetOpt = None
+            else:
+                target = 'pointwise'
+                targetOpt = '-b'
+            # Find the target in the current path
+            prog = os.environ.get('PWI_GLYPH_SERVER_TCLSH', target)
             import shutil
             if not hasattr(shutil, 'which'):
                 # Python 3: shutil.which exists
                 shutil.which = __which__
-            tclsh = shutil.which(tclsh)
-            if tclsh is None:
-                raise GlyphError('server', 'tclsh not found in path')
+            prog = shutil.which(prog)
+            if prog is None:
+                raise GlyphError('server', '%s not found in path' % target)
 
             # find an open port
             try:
@@ -470,18 +473,23 @@ class GlyphClient(object):
                 tsock.close()
                 time.sleep(0.1)
 
+            # Check if there are command line arguments
+            if targetOpt is not None:
+                prog = [prog, targetOpt]
             # start the server subprocess
             import subprocess
             if callback is not None:
-                self._server = subprocess.Popen(tclsh, stdin=subprocess.PIPE, \
+                self._server = subprocess.Popen(prog, stdin=subprocess.PIPE,
                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             else:
                 if hasattr(subprocess, 'DEVNULL'):
                     # Python 3: subprocess.DEVNULL exists
-                    self._server = subprocess.Popen(tclsh, stdin=subprocess.PIPE, \
-                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    self._server = subprocess.Popen(prog,
+                            stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL)
                 else:
-                    self._server = subprocess.Popen(tclsh, stdin=subprocess.PIPE)
+                    self._server = subprocess.Popen(prog,
+                            stdin=subprocess.PIPE)
 
             self._server.stdin.write(bytearray((
                 "package require PWI_Glyph\n" +
