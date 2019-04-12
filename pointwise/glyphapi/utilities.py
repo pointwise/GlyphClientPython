@@ -82,7 +82,10 @@ class Vector2(object):
 
     def __iter__(self):
         return (e for e in self.vector_)
-        
+ 
+    def __len__(self):
+        return len(self.vector_)
+
     def index(self, i):
         """ Return a component of a Vector2 """
         return self.vector_[i]
@@ -256,6 +259,9 @@ class Vector3(object):
 
     def __iter__(self):
         return (e for e in self.vector_)
+
+    def __len__(self):
+        return len(self.vector_)
 
     def index(self, i):
         """ Return a component of a Vector3 """
@@ -1050,8 +1056,8 @@ class Transform(object):
             cartesian = True
             ct1 = 0
             ct2 = 10
-            pst = 8
-            nst = 2
+            pst = 2
+            nst = 8
             if axis.y < 0.0:
                 angle = -angle
         elif axis.y == 0.0 and axis.z == 0.0:
@@ -1059,8 +1065,8 @@ class Transform(object):
             cartesian = True
             ct1 = 5
             ct2 = 10
-            pst = 6
-            nst = 9
+            pst = 9
+            nst = 6
             if axis.x < 0.0:
                 angle = -angle
 

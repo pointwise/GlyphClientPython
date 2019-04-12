@@ -194,8 +194,9 @@ class GlyphObj(object):
                 con = pw.Connector()
                 exa = pw.Examine("ConnectorLengthI")
         """
-        cmd = [self._function, 'create']
-        cmd += args
+        gvars = {}
+        kwargs = {}
+        cmd = self._buildGlyphCmd(self._function, 'create', args, kwargs, gvars)
         result = self._runGlyphCmd(cmd)
         return result
 
@@ -218,6 +219,10 @@ class GlyphObj(object):
         cmd = [self._function, 'equals', other._function]
         return bool(self._runGlyphCmd(cmd))
 
+
+    # Add hash support so GlyphObj objects can be used in dictionaries
+    def __hash__(self):
+        return hash(self._function)
 
     @property
     def glyphType(self):
