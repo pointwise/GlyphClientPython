@@ -60,7 +60,6 @@ Example Usage
        con.addSegment(conic1)
        con.addSegment(conic2)
        con.calculateDimension()
-       creator.end()
 
 Usage Notes
 -----------
@@ -102,11 +101,11 @@ specifying the port number as zero. Note that this will consume a Pointwise
 license, if one is available. Standard and error output from the server
 subprocess can be captured by specifying a callback function.
 
-Note that, in order to use port=0, the Pointwise installed version of 'tclsh'
-must be in the environment path variable, along with any other necessary
-environment, including LD_LIBRARY_PATH on non-Windows platforms.
-(LD_LIBRARY_PATH is typically set by the 'pointwise' launch script. Refer to
-that script for specific details.)
+Note that, in order to use port=0, the directory path of the
+Pointwise-installed version of 'tclsh' (for Windows platforms) or the
+'pointwise' launch script (for non-Windows) must be in the environment
+PATH variable, along with any other necessary environment needed to
+run the script.
 
 Example:
 
@@ -312,16 +311,15 @@ Examples:
    with pw.Application.begin("Create") as creator:
        con = pw.Connector()
        ...
-       # a mode MUST be explicitly ended before the context exits, otherwise
-       # it is aborted and all modifications made in the mode are discarded
-       creator.end()
+       # a mode will be implicitly ended when the context ends, unless
+       # an exception occurs, in which case the mode is aborted and all
+       # modifications made in the mode are discarded
 
    with pw.Examine("BlockJacobian") as exam:
        exam.addEntity([blk1, blk2])
        exam.examine()
        ...
        # Examine objects are automatically deleted when the context exits,
-       # so nothing needs to be done explicitly
 
 Glyph Utility Classes
 ~~~~~~~~~~~~~~~~~~~~~
