@@ -37,7 +37,11 @@ from pointwise.glyphapi import *
 def echo(line):
     print("Script: {0}".format(line), end='')  # Not Python 2.7 compatible
 
+# Run in batch mode
 glf = GlyphClient(port=0, callback=echo)
+
+# Run in GUI, default port
+# glf = GlyphClient(port=2807, callback=echo)
 
 glf.connect()
 
@@ -74,8 +78,7 @@ with pw.Application.begin("Create") as creator:
     # $con calculateDimension
     con.calculateDimension()
 
-    # $creator end
-    creator.end()
+    # "$creator end" is implied
 
 pw.Application.markUndoLevel("Create 2 Point Connector")
 
@@ -86,7 +89,6 @@ with pw.Application.begin("Create") as creator:
     con = pw.Connector()
     con.addSegment(seg)
     con.calculateDimension()
-    creator.end()
 
 pw.Application.markUndoLevel("Create 2 Point Connector")
 
@@ -118,21 +120,18 @@ with pw.Application.begin("Modify", cons["con-1"]) as modifier:
     # [$cons(con-1) getDistribution 1] setBeginSpacing 1
     cons["con-1"].getDistribution(1).setBeginSpacing(1)
 
-    # $modifier end
-    modifier.end()
+    # "$modifier end" is implied
 
 pw.Application.markUndoLevel("Change Spacing")
 
 with pw.Application.begin("Modify", cons.values()) as modifier:
     cons["con-1"].getDistribution(1).setEndSpacing(0.1)
     cons["con-2"].getDistribution(1).setEndSpacing(0.1)
-    modifier.end()
 
 pw.Application.markUndoLevel("Change Spacings")
 
 with pw.Application.begin("Modify", cons["con-2"]) as modifier:
     cons["con-2"].getDistribution(1).setEndSpacing(2)
-    modifier.end()
 
 pw.Application.markUndoLevel("Change Spacing")
 
@@ -145,7 +144,6 @@ with pw.Application.begin("Create") as creator:
 
     # $dom addEdge $edge
     dom.addEdge(edge)
-    creator.end()
 
 # set extruder [pw::Application begin ExtrusionSolver $dom]
 with pw.Application.begin("ExtrusionSolver", dom) as extruder:
@@ -161,8 +159,7 @@ with pw.Application.begin("ExtrusionSolver", dom) as extruder:
     # $extruder run 29
     extruder.run(29)
 
-    # $extruder end
-    extruder.end()
+    # "$extruder end" is implied
 
 pw.Application.markUndoLevel("Translate")
 
@@ -170,14 +167,12 @@ with pw.Application.begin("Create") as creator:
     edge = pw.Edge.createFromConnectors(cons.values(), single=True)
     dom = pw.DomainStructured()
     dom.addEdge(edge)
-    creator.end()
 
 with pw.Application.begin("ExtrusionSolver", dom) as extruder:
     dom.setExtrusionSolverAttribute("Mode", "Translate")
     dom.setExtrusionSolverAttribute("TranslateDirection", Vector3(0, -1, 0).negate())
     dom.setExtrusionSolverAttribute("TranslateDistance", 20)
     extruder.run(29)
-    extruder.end()
 
 pw.Application.markUndoLevel("Translate")
 
@@ -191,7 +186,6 @@ with pw.Application.begin("Modify", cons.values()) as modifier:
     cons["con-5"].getDistribution(1).setEndSpacing(0.1)
     cons["con-6"].getDistribution(1).setBeginSpacing(0.1)
     cons["con-8"].getDistribution(1).setEndSpacing(0.1)
-    modifier.end()
 
 pw.Application.markUndoLevel("Change Spacings")
 
@@ -204,8 +198,7 @@ doms["dom-2"] = pw.GridEntity.getByName("dom-2")
 with pw.Application.begin("EllipticSolver", doms.values()) as solver:
     # $solver Initialize
     solver.run("Initialize")
-    # $solver end
-    solver.end()
+    # "$solver end" is implied
 
 pw.Application.markUndoLevel("Initialize")
 
@@ -239,11 +232,9 @@ with pw.Application.begin("Paste") as paster:
         # $coll delete
         coll.delete()
 
-        # $modifier end
-        modifier.end()
+        # "$modifier end" is implied
 
-    # $paster end
-    paster.end()
+    # "$paster end" is implied
 
 pw.Application.markUndoLevel("Paste")
 
@@ -256,7 +247,6 @@ with pw.Application.begin("Create") as creator:
     con = pw.Connector()
     con.addSegment(seg)
     con.calculateDimension()
-    creator.end()
 
 pw.Application.markUndoLevel("Create 2 Point Connector")
 
@@ -267,7 +257,6 @@ with pw.Application.begin("Create") as creator:
     con = pw.Connector()
     con.addSegment(seg)
     con.calculateDimension()
-    creator.end()
 
 pw.Application.markUndoLevel("Create 2 Point Connector")
 
@@ -278,7 +267,6 @@ with pw.Application.begin("Create") as creator:
     con = pw.Connector()
     con.addSegment(seg)
     con.calculateDimension()
-    creator.end()
 
 pw.Application.markUndoLevel("Create 2 Point Connector")
 
@@ -289,7 +277,6 @@ with pw.Application.begin("Create") as creator:
     con = pw.Connector()
     con.addSegment(seg)
     con.calculateDimension()
-    creator.end()
 
 pw.Application.markUndoLevel("Create 2 Point Connector")
 
@@ -300,7 +287,6 @@ with pw.Application.begin("Create") as creator:
     con = pw.Connector()
     con.addSegment(seg)
     con.calculateDimension()
-    creator.end()
 
 pw.Application.markUndoLevel("Create 2 Point Connector")
 
@@ -311,7 +297,6 @@ with pw.Application.begin("Create") as creator:
     con = pw.Connector()
     con.addSegment(seg)
     con.calculateDimension()
-    creator.end()
 
 pw.Application.markUndoLevel("Create 2 Point Connector")
 
@@ -322,7 +307,6 @@ with pw.Application.begin("Create") as creator:
     con = pw.Connector()
     con.addSegment(seg)
     con.calculateDimension()
-    creator.end()
 
 pw.Application.markUndoLevel("Create 2 Point Connector")
 

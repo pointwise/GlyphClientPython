@@ -100,17 +100,16 @@ class GlyphObj(object):
 
     def __enter__(self):
         """ Glyph objects derived from pw::Mode or pw::Examine can be
-            used as context managers. For modes, early termination from
-            the context will automatically issue the 'mode abort' action,
-            so the mode must be 'end'ed prior to the context exit. For Examine,
-            no special handling is required, but the Glyph examine object
-            will be destroyed when the context exits.
+            used as context managers. For modes, the context will
+            automatically issue the 'mode end' action upon exit, unless
+            an exception occurs in which case 'mode abort' will be issued.
+            Examine, the Glyph examine object will be destroyed when the
+            context exits.
 
             Ex.
                 with pw.Application.begin("Create") as creator:
                     con = pw.Connector()
                     ...
-                    creator.end()
 
                 with pw.Examine("BlockJacobian") as exam:
                     exam.addEntity(blk)
@@ -161,15 +160,21 @@ class GlyphObj(object):
         return self
 
 
-    def __exit__(self, *args):
-        """ Exit context, aborting mode or deleting examine object as needed """
+    def __exit__(self, ex_type, ex_val, ex_tb):
+        """ Exit context, ending or aborting mode or deleting examine object
+            as needed
+        """
         try:
             if self._open:
                 if self._isMode:
-                    self.glf.eval(self._function + " abort")
-                    self._open = False
+                    if ex_type is None:
+                        self.glf.eval(self._function + " end")
+                    else:
+                        self.glf.eval(self._function + " abort")
                 elif self._isExamine:
                     self.glf.eval(self._function + " delete")
+                self._open = False
+                return False
         finally:
             del self._isMode
             del self._isExamine
@@ -223,6 +228,7 @@ class GlyphObj(object):
     # Add hash support so GlyphObj objects can be used in dictionaries
     def __hash__(self):
         return hash(self._function)
+
 
     @property
     def glyphType(self):
@@ -421,6 +427,10 @@ class GlyphObj(object):
                     for pyVar, tclVarName in gvars.items():
                         pyVar.value = self._evalTclVar(tclVarName)
                     self._delTclVar(gvars)
+                if self._isMode and action in ['end', 'abort']:
+                    self._open = False
+                elif self._isExamine and action == 'delete':
+                    self._open = False
                 return result
             except GlyphError:
                 raise
