@@ -48,9 +48,16 @@ class GlyphClient(object):
         Glyph Server.  Optionally, it can start a batch Glyph Server process
         as a subprocess (which consumes a Pointwise license). To start
         a server subprocess, initialize the GlyphClient with port = 0.
+        For Windows platforms, the default program to run is 'tclsh'. For
+        Linux and Mac OS platforms, the default program is 'pointwise -b'.
+        (Optionally, the 'prog' argument may be specified to indicate the
+        program or shell script to run as the batch Glyph server process.
+        This is typically used in environments where multiple versions of
+        Pointwise are installed.)
     """
 
-    def __init__(self, port=None, auth=None, version=None, host='localhost', callback=None):
+    def __init__(self, port=None, auth=None, version=None, host='localhost', \
+            callback=None, prog=None):
         """ Initialize a GlyphClient object """
         self._port = port
         self._auth = auth
@@ -69,7 +76,7 @@ class GlyphClient(object):
             self._auth = os.environ.get('PWI_GLYPH_SERVER_AUTH', '')
 
         if self._port == 0:
-            self._startServer(callback)
+            self._startServer(callback, prog)
 
 
     def __del__(self):
@@ -442,24 +449,28 @@ class GlyphClient(object):
         self.eval("puts {%s}" % ' '.join(args))
 
 
-    def _startServer(self, callback):
+    def _startServer(self, callback, prog):
         """ Create a server if possible on any open port """
         self._server = None
         self._othread = None
         try:
-            if platform.system() == 'Windows':
-                target = 'tclsh'
-                targetOpt = None
-            else:
-                target = 'pointwise'
-                targetOpt = '-b'
-            # Find the target in the current path
-            prog = os.environ.get('PWI_GLYPH_SERVER_TCLSH', target)
+            targetOpt = None
+            if prog is None:
+                if platform.system() == 'Windows':
+                    target = 'tclsh'
+                else:
+                    target = 'pointwise'
+                    targetOpt = '-b'
+                # Find the target in the current path
+                # prog = os.environ.get('PWI_GLYPH_SERVER_TCLSH', target)
+                prog = target
+
             import shutil
             if not hasattr(shutil, 'which'):
                 # Python 3: shutil.which exists
                 shutil.which = __which__
             prog = shutil.which(prog)
+
             if prog is None:
                 raise GlyphError('server', '%s not found in path' % target)
 
@@ -476,53 +487,50 @@ class GlyphClient(object):
             # Check if there are command line arguments
             if targetOpt is not None:
                 prog = [prog, targetOpt]
+
+            if callback is None:
+                def __default_callback__(*args):
+                    pass
+                callback = __default_callback__
+
             # start the server subprocess
             import subprocess
-            if callback is not None:
-                self._server = subprocess.Popen(prog, stdin=subprocess.PIPE,
-                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-            else:
-                if hasattr(subprocess, 'DEVNULL'):
-                    # Python 3: subprocess.DEVNULL exists
-                    self._server = subprocess.Popen(prog,
-                            stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
-                            stderr=subprocess.DEVNULL)
-                else:
-                    self._server = subprocess.Popen(prog,
-                            stdin=subprocess.PIPE)
+            self._server = subprocess.Popen(prog, stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
             self._server.stdin.write(bytearray((
                 "package require PWI_Glyph\n" +
                 "pw::Script setServerPort %d\n" +
                 "puts \"Server: [pw::Application getVersion]\"\n" +
-                "while 1 { pw::Script processServerMessages }\n") %
+                "pw::Script processServerMessages -timeout 10\n") %
                 self._port, "utf-8"))
             self._server.stdin.flush()
 
+            # wait for one line of output to ensure the server is set up
+            # and a valid license has been obtained
+            callback(self._server.stdout.readline().decode('utf-8'))
+            time.sleep(0.1)
+
             # capture stdout/stderr from the server
-            if callback is not None:
-                import threading
-                class ReaderThread(threading.Thread):
-                    def __init__(self, ios, callback):
-                        threading.Thread.__init__(self)
-                        self._ios = ios
-                        self._error = None
-                        self._cb = callback
-                        self.daemon = True
+            import threading
+            class ReaderThread(threading.Thread):
+                def __init__(self, ios, callback):
+                    threading.Thread.__init__(self)
+                    self._ios = ios
+                    self._error = None
+                    self._cb = callback
+                    self.daemon = True
 
-                    def run(self):
-                        try:
-                            for line in iter(self._ios.readline, b''):
-                                # Python 2: convert decoded bytes to 'str'
-                                self._cb(str(line.decode('utf-8')))
-                        except Exception as ex:
-                            self._error = str(ex)
+                def run(self):
+                    try:
+                        for line in iter(self._ios.readline, b''):
+                            # Python 2: convert decoded bytes to 'str'
+                            self._cb(str(line.decode('utf-8')))
+                    except Exception as ex:
+                        self._error = str(ex)
 
-                    #def __del__(self):
-                    #    self._ios.close()
-
-                self._othread = ReaderThread(self._server.stdout, callback)
-                self._othread.start()
+            self._othread = ReaderThread(self._server.stdout, callback)
+            self._othread.start()
         except Exception as ex:
             if self._server is not None:
                 self._server.kill()
