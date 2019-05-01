@@ -57,12 +57,13 @@ class GlyphClient(object):
     """
 
     def __init__(self, port=None, auth=None, version=None, host='localhost', \
-            callback=None, prog=None):
+            callback=None, prog=None, timeout=10):
         """ Initialize a GlyphClient object """
         self._port = port
         self._auth = auth
         self._host = host
         self._version = version
+        self._timeout = timeout
 
         self._socket = None
         self._busy = False
@@ -76,7 +77,10 @@ class GlyphClient(object):
             self._auth = os.environ.get('PWI_GLYPH_SERVER_AUTH', '')
 
         if self._port == 0:
-            self._startServer(callback, prog)
+            try:
+                self._startServer(callback, prog)
+            except GlyphError as NoLicense:
+                raise NoLicense
 
 
     def __del__(self):
@@ -112,7 +116,7 @@ class GlyphClient(object):
         return s
 
 
-    def connect(self, retries=5):
+    def connect(self, retries=None):
         """ Connect to a Glyph server at the given host and port.
 
             Args:
@@ -130,7 +134,8 @@ class GlyphClient(object):
                     Z values are optional and default to a zero value. A blank
                     value always uses the current version. 
                 retries (int): the number of times to retry the connection
-                    before giving up.
+                    before giving up. DEPRECATED: if not None, retries will be
+                    used to determine a suitable value for timeout.
 
             Returns:
                 bool: True if successfully connected, False otherwise.  If an
@@ -142,13 +147,17 @@ class GlyphClient(object):
         self._busy = False
         self._auth_failed = False
 
-        while self._socket is None and retries > 0:
+        timeout = self._timeout
+        if retries is not None:
+            timeout = 0.1 * retries
+
+        start = time.time()
+        while self._socket is None and time.time() - start < timeout:
             try:
                 self._socket = self._connect(self._host, self._port)
             except:
                 self._socket = None
             if self._socket is None:
-                retries -= 1
                 time.sleep(0.1) # sleep for a bit before retry
 
         if self._socket is None:
@@ -331,20 +340,29 @@ class GlyphClient(object):
                 del self._socket
             self._socket = None
 
-            if hasattr(self, "_server") and self._server is not None:
-                self._server.terminate()
-                self._server.wait()
-                if self._othread is not None:
-                    self._othread.join(0.5)
-                    del self._othread
-                if self._server.stdin is not None:
+        if hasattr(self, "_server") and self._server is not None:
+            self._server.terminate()
+            self._server.wait()
+            if self._server.stdin is not None:
+                try:
                     self._server.stdin.close()
-                if self._server.stdout is not None:
+                except IOError:
+                    pass
+            if self._server.stdout is not None:
+                try:
                     self._server.stdout.close()
-                if self._server.stderr is not None:
+                except IOError:
+                    pass
+            if self._server.stderr is not None:
+                try:
                     self._server.stderr.close()
-                del self._server
-                self._server = None
+                except IOError:
+                    pass
+            if self._othread is not None:
+                self._othread.join(0.5)
+                del self._othread
+            del self._server
+            self._server = None
 
 
     def disconnect(self):
@@ -499,17 +517,24 @@ class GlyphClient(object):
                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
             self._server.stdin.write(bytearray((
-                "package require PWI_Glyph\n" +
+                "puts [package require PWI_Glyph]\n" +
                 "pw::Script setServerPort %d\n" +
                 "puts \"Server: [pw::Application getVersion]\"\n" +
-                "pw::Script processServerMessages -timeout 10\n") %
-                self._port, "utf-8"))
+                "pw::Script processServerMessages -timeout %s\n") %
+                (self._port, str(int(self._timeout))), "utf-8"))
             self._server.stdin.flush()
+
+            ver = self._server.stdout.readline().decode('utf-8')
+            if not re.match(r"\d+\.\d+\.\d+", ver):
+                callback(str(ver))
+                for line in iter(self._server.stdout.readline, b''):
+                    callback(str(line.decode('utf-8')))
+                self.close()
+                raise GlyphError('server', ver)
 
             # wait for one line of output to ensure the server is set up
             # and a valid license has been obtained
             callback(self._server.stdout.readline().decode('utf-8'))
-            time.sleep(0.1)
 
             # capture stdout/stderr from the server
             import threading
