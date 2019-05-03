@@ -43,6 +43,14 @@ class GlyphError(Exception):
         self.command = command
 
 
+class NoLicenseError(Exception):
+    """ This exception is raised when a Glyph server subprocess could
+        not acquire a valid Pointwise license.
+    """
+    def __init__(self, message, *args, **kwargs):
+        Exception.__init__(self, message, *args, **kwargs)
+
+
 class GlyphClient(object):
     """ This class is a wrapper around TCP client communications with a
         Glyph Server.  Optionally, it can start a batch Glyph Server process
@@ -77,13 +85,14 @@ class GlyphClient(object):
             self._auth = os.environ.get('PWI_GLYPH_SERVER_AUTH', '')
 
         if self._port == 0:
-            try:
-                self._startServer(callback, prog)
-            except GlyphError as NoLicense:
-                raise NoLicense
+            self._startServer(callback, prog)
 
 
     def __del__(self):
+        if hasattr(self, "_server") and self._server is not None:
+            self._server.stdout = None
+            self._server.stderr = None
+            self._server.stdin = None
         self.close()
 
 
@@ -142,7 +151,7 @@ class GlyphClient(object):
                     initial connection is made, but the Glyph Server is busy,
                     calling is_busy() will return True.
         """
-        self.close()
+        self._closeSocket()
 
         self._busy = False
         self._auth_failed = False
@@ -329,39 +338,51 @@ class GlyphClient(object):
 
     def close(self):
         """ Close the connection with the Glyph server """
-        #if self._socket and not self._socket.fileno() == -1:
-        if self._socket:
-            if not self._socket.fileno() == -1:
-                try:
-                    self._socket.shutdown(socket.SHUT_RDWR)
-                except:
-                    None
-                self._socket.close()
-                del self._socket
-            self._socket = None
+
+        if hasattr(self, "_server") and self._server is not None and \
+                hasattr(self, "_socket") and self._socket is not None:
+            try:
+                # request graceful shutdown of server
+                self.eval("exit")
+            except socket.error as err:
+                pass
+
+        self._closeSocket()
 
         if hasattr(self, "_server") and self._server is not None:
+            # safe to call even if server has already shut down
             self._server.terminate()
             self._server.wait()
-            if self._server.stdin is not None:
-                try:
-                    self._server.stdin.close()
-                except IOError:
-                    pass
+
+            # resource warnings may occur if pipes are not closed from the
+            # client side (typically on Windows)
             if self._server.stdout is not None:
                 try:
                     self._server.stdout.close()
+                    self._server.stdout = None
                 except IOError:
                     pass
-            if self._server.stderr is not None:
-                try:
-                    self._server.stderr.close()
-                except IOError:
-                    pass
+
+            # wait for the pipe reader thread to finish
             if self._othread is not None:
                 self._othread.join(0.5)
                 del self._othread
-            del self._server
+                self._othread = None
+
+            if self._server.stdin is not None:
+                try:
+                    self._server.stdin.close()
+                    self._server.stdin = None
+                except IOError:
+                    pass
+
+            if self._server.stderr is not None:
+                try:
+                    self._server.stderr.close()
+                    self._server.stderr = None
+                except IOError:
+                    pass
+
             self._server = None
 
 
@@ -406,7 +427,8 @@ class GlyphClient(object):
         except socket.error as e:
             # Python 3: BrokenPipeError
             if e.errno == errno.EPIPE:
-                raise GlyphError(command, 'The Glyph Server connection is closed')
+                raise GlyphError(command,
+                        'The Glyph Server connection is closed')
             else:
                 raise
 
@@ -447,7 +469,8 @@ class GlyphClient(object):
         if message_bytes is None:
             return None
 
-        # Python 2: convert decoded bytes (type 'unicode') to string (type 'str')
+        # Python 2: convert decoded bytes (type 'unicode') to string (type
+        # 'str')
         type = str(message_bytes[0:8].decode('utf-8')).strip()
         payload = str(message_bytes[8:].decode('utf-8'))
         return (type, payload)
@@ -467,30 +490,45 @@ class GlyphClient(object):
         self.eval("puts {%s}" % ' '.join(args))
 
 
+    def _closeSocket(self):
+        """ Close the connection with the Glyph server """
+        if self._socket:
+            if not self._socket.fileno() == -1:
+                try:
+                    self._socket.shutdown(socket.SHUT_RDWR)
+                except:
+                    None
+                self._socket.close()
+                del self._socket
+            self._socket = None
+
+
     def _startServer(self, callback, prog):
         """ Create a server if possible on any open port """
         self._server = None
         self._othread = None
         try:
-            targetOpt = None
             if prog is None:
                 if platform.system() == 'Windows':
-                    target = 'tclsh'
+                    prog = ['tclsh']
                 else:
-                    target = 'pointwise'
-                    targetOpt = '-b'
-                # Find the target in the current path
-                # prog = os.environ.get('PWI_GLYPH_SERVER_TCLSH', target)
-                prog = target
+                    prog = ['pointwise', '-b']
+            elif isinstance(prog, tuple):
+                prog = list(prog)
+            elif not isinstance(prog, list):
+                prog = [prog]
 
             import shutil
             if not hasattr(shutil, 'which'):
                 # Python 3: shutil.which exists
                 shutil.which = __which__
-            prog = shutil.which(prog)
 
-            if prog is None:
-                raise GlyphError('server', '%s not found in path' % target)
+            target = shutil.which(prog[0])
+
+            if target is None:
+                raise GlyphError('server', '%s not found in path' % prog[0])
+
+            prog[0] = target
 
             # find an open port
             try:
@@ -501,10 +539,6 @@ class GlyphClient(object):
             finally:
                 tsock.close()
                 time.sleep(0.1)
-
-            # Check if there are command line arguments
-            if targetOpt is not None:
-                prog = [prog, targetOpt]
 
             if callback is None:
                 def __default_callback__(*args):
@@ -517,20 +551,29 @@ class GlyphClient(object):
                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
             self._server.stdin.write(bytearray((
-                "puts [package require PWI_Glyph]\n" +
+                "set server_ver [package require PWI_Glyph]\n" +
+                "if { [package vcompare $server_ver 2.18.2] < 0 } {" +
+                "  puts {Server must be 18.2 or higher}\n"
+                "  exit\n"
+                "}\n" +
+                "puts $server_ver\n" +
                 "pw::Script setServerPort %d\n" +
                 "puts \"Server: [pw::Application getVersion]\"\n" +
-                "pw::Script processServerMessages -timeout %s\n") %
+                "pw::Script processServerMessages -timeout %s\n" +
+                "puts \"Server: Subprocess completed.\n") %
                 (self._port, str(int(self._timeout))), "utf-8"))
             self._server.stdin.flush()
 
             ver = self._server.stdout.readline().decode('utf-8')
-            if not re.match(r"\d+\.\d+\.\d+", ver):
+            if re.match(r"\d+\.\d+\.\d+", ver) is None:
                 callback(str(ver))
                 for line in iter(self._server.stdout.readline, b''):
                     callback(str(line.decode('utf-8')))
                 self.close()
-                raise GlyphError('server', ver)
+                if re.match(r".*unable to obtain a license.*", ver):
+                    raise NoLicenseError(ver)
+                else:
+                    raise GlyphError('server', ver)
 
             # wait for one line of output to ensure the server is set up
             # and a valid license has been obtained
@@ -553,6 +596,7 @@ class GlyphClient(object):
                             self._cb(str(line.decode('utf-8')))
                     except Exception as ex:
                         self._error = str(ex)
+                    self._ios = None
 
             self._othread = ReaderThread(self._server.stdout, callback)
             self._othread.start()
@@ -560,9 +604,10 @@ class GlyphClient(object):
             if self._server is not None:
                 self._server.kill()
                 self._server.wait()
+                self._server = None
             if self._othread is not None:
                 self._othread.join(0.5)
-                if callback is not None and self._othread._error is not None:
+                if self._othread._error is not None:
                     callback(self._othread._error)
             raise
 
