@@ -556,28 +556,48 @@ class GlyphClient(object):
                 "  puts {Server must be 18.2 or higher}\n"
                 "  exit\n"
                 "}\n" +
-                "puts $server_ver\n" +
+                "puts \"GLYPH_SERVER_VERSION: $server_ver\"\n" +
                 "pw::Script setServerPort %d\n" +
                 "puts \"Server: [pw::Application getVersion]\"\n" +
                 "pw::Script processServerMessages -timeout %s\n" +
-                "puts \"Server: Subprocess completed.\n") %
+                "puts \"Server: Subprocess completed.\"\n") %
                 (self._port, str(int(self._timeout))), "utf-8"))
             self._server.stdin.flush()
 
-            ver = self._server.stdout.readline().decode('utf-8')
-            if re.match(r"\d+\.\d+\.\d+", ver) is None:
-                callback(str(ver))
+            ver_re = re.compile(r"GLYPH_SERVER_VERSION: (\d+\.\d+\.\d+)")
+            lic_re = re.compile(r".*unable to obtain a license.*")
+
+            # process output from the server until we can determine
+            # that the server is running and a valid license was obtained
+            ver = str(self._server.stdout.readline().decode('utf-8'))
+            ver_match = ver_re.match(ver)
+            lic_match = lic_re.match(ver)
+
+            # Read the server output, looking for a special line with the
+            # server version, or a line with a known license failure message,
+            # or until EOF. Print all output preceding any of these conditions.
+            if ver_match is None and lic_match is None:
+                # Note: not strictly Python 2 compatible, but deemed acceptable
+                print(ver)
+                for ver in iter(self._server.stdout.readline, b''):
+                    ver = str(ver.decode('utf-8'))
+                    ver_match = ver_re.match(ver)
+                    if ver_match is not None:
+                        break
+                    lic_match = lic_re.match(ver)
+                    if lic_match is not None:
+                        break
+                    print(ver)
+
+            if lic_match is not None or ver_match is None:
+                # license or other failure
                 for line in iter(self._server.stdout.readline, b''):
                     callback(str(line.decode('utf-8')))
                 self.close()
-                if re.match(r".*unable to obtain a license.*", ver):
+                if lic_match is not None:
                     raise NoLicenseError(ver)
                 else:
                     raise GlyphError('server', ver)
-
-            # wait for one line of output to ensure the server is set up
-            # and a valid license has been obtained
-            callback(self._server.stdout.readline().decode('utf-8'))
 
             # capture stdout/stderr from the server
             import threading
