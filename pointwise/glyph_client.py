@@ -551,7 +551,12 @@ class GlyphClient(object):
                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
             self._server.stdin.write(bytearray((
-                "set server_ver [package require PWI_Glyph]\n" +
+                "if [catch {package require PWI_Glyph} server_ver] {\n" +
+                "  puts {Could not load Glyph package. Ensure that the " +
+                "Pointwise version of tclsh is the only one in your PATH.}\n" +
+                "  puts $server_ver\n" +
+                "  exit\n" +
+                "}\n" +
                 "if { [package vcompare $server_ver 2.18.2] < 0 } {" +
                 "  puts {Server must be 18.2 or higher}\n"
                 "  exit\n"
