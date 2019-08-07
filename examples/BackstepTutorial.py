@@ -27,10 +27,10 @@
 from pointwise import GlyphClient
 from pointwise.glyphapi import *
 
-# Connect to the Pointwise server listening on localhost at port 2807 with
-# no authentication token...
+# Connect to the Pointwise server listening on localhost at the default port
+# with no authentication token...
 
-# glf = GlyphClient(port=2807)
+# glf = GlyphClient()
 
 # ... or create a pointwise server as a subprocess and connect to that.
 # Note: this will consume a Pointwise license
@@ -41,7 +41,7 @@ def echo(line):
 glf = GlyphClient(port=0, callback=echo)
 
 # Run in GUI, default port
-# glf = GlyphClient(port=2807, callback=echo)
+# glf = GlyphClient(callback=echo)
 
 glf.connect()
 

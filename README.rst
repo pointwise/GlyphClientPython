@@ -4,9 +4,13 @@ Glyph API for Python
 This is a Python implementation of the Pointwise Glyph API. Glyph is
 implemented as a set of Tcl procedures that have an object-oriented
 feel. Pointwise supports non-Tcl scripting (or binary code) applications
-through a feature called *Glyph Server*, first avaialable in V18.0R1.
-This API leverages some of the introspective features of the Python
-language to automatically convert Python expressions into Glyph (Tcl)
+through a feature called *Glyph Server*, first avaialable in V18.0.
+This package allows low level communication with a Glyph Server, but
+doing so amounts to constructing Glyph/Tcl commands as strings and
+sending them to the Glyph Server for processing.  The recommended way
+to use this package however is to use the higher level Glyph API for
+Python.  This API leverages some of the introspective features of the
+Python language to automatically convert Python expressions into Glyph/Tcl
 command strings to be executed on the Glyph Server, and to convert the
 results back into Python objects.
 
@@ -29,9 +33,10 @@ Usage
 
 The most basic usage of the Glyph API for Python is to:
 
-1. Import GlyphClient from pointwise
-2. Create GlyphClient object and connect to a listening Pointwise server
-3. Request a GlyphAPI object from the client object
+1. Import GlyphClient from pointwise package
+2. Create a GlyphClient object
+3. Request a GlyphAPI object from the client object, which automatically
+   connects to the GlyphServer if the GlyphClient is not already connected.
 4. Issue Glyph actions through the GlyphAPI
 
 Example Usage
@@ -40,9 +45,8 @@ Example Usage
 .. code:: python
 
    from pointwise import GlyphClient
-   from pointwise.glyphapi import *
 
-   glf = GlyphClient(port=2807)
+   glf = GlyphClient()
    pw = glf.get_glyphapi()
        
    pw.Connector.setCalculateDimensionMethod("Spacing")
@@ -93,13 +97,24 @@ Example:
 
 .. code:: python
 
-   with GlyphClient(port=2807) as glf:
+   with GlyphClient() as glf:
        glf.eval("puts {Hello World}")
 
-GlyphClient can start a Glyph server automatically as a subprocess by
-specifying the port number as zero. Note that this will consume a Pointwise
-license, if one is available. Standard and error output from the server
-subprocess can be captured by specifying a callback function.
+The GlyphClient constructor has an optional argument of a port number.  Most
+of the time this can be left unspecified, which means it will use the value
+of the PWI_GLYPH_SERVER_PORT, or 2807 if the environment variable is not
+defined.  When running a script from within the Pointwise GUI, before the
+script is executed, the PWI_GLYPH_SERVER_PORT environment variable is set
+to the current port that the Glyph Server has been configured to listen to.
+Only when a script needs to communicate with multiple instances of Pointwise
+would specifying the port be necessary, and it is recommended that the script
+allow user input for specifying the port so that the script is not hard coded.
+
+The GlyphClient constructor can also start Pointwise in batch mode as a
+subprocess with a actively listening Glyph Server by specifying the port number
+as zero. Note that this will consume a Pointwise license, if one is available.
+Standard and error output from the Pointwise subprocess can be captured by
+specifying a callback function.
 
 Note that, in order to use port=0, the directory path of the
 Pointwise-installed version of 'tclsh' (for Windows platforms) or the
