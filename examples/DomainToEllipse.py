@@ -14,7 +14,7 @@ import copy
 ##########################################################
 # Main Program
 
-with GlyphClient(port=2807) as glf:
+with GlyphClient() as glf:
     pw = glf.get_glyphapi()
 
     # Any value smaller than this is considered to be zero.

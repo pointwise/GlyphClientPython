@@ -66,7 +66,36 @@ class GlyphClient(object):
 
     def __init__(self, port=None, auth=None, version=None, host='localhost', \
             callback=None, prog=None, timeout=10):
-        """ Initialize a GlyphClient object """
+        """ Initialize a GlyphClient object
+
+            Args:
+                port (str): the port number of the Glyph Server to connect to.
+                    If the port is not given, it defaults to the environment
+                    variable PWI_GLYPH_SERVER_PORT, or 2807 if not defined.
+                    If port is 0, a Pointwise batch subprocess will be started
+                    if a license is available.
+                auth (str): the authorization code of the Glyph Server.  If the
+                    auth is not given, it defaults to the environment variable
+                    PWI_GLYPH_SERVER_AUTH, or an empty string if not defined.
+                version (str): the Glyph version number to use for
+                    compatibility. The string should be of the form X.Y.Z
+                    where X, Y, and Z are positive integer values. The Y and
+                    Z values are optional and default to a zero value. A blank
+                    value always uses the current version. 
+                host (str): the host name of the Glyph Server to connect to.
+                    The default value is 'localhost'.
+                callback (func): a callback function that takes a string
+                    parameter that represents the response messages from the
+                    Glyph Server. The default callback is None.
+                prog (str): The batch executable program to use when port is 0.
+                    If prog is None, 'tclsh' will be used on Windows platforms
+                    and 'pointwise -b' will be used for Linux/macOS platforms.
+                    Otherwise the given program will be used to execute the
+                    Pointwise batch mode.
+                timeout (float): The number of seconds to continue to try to
+                    connect to the server before giving up. The default timeout
+                    is 10 seconds.
+        """
         self._port = port
         self._auth = auth
         self._host = host
@@ -129,19 +158,6 @@ class GlyphClient(object):
         """ Connect to a Glyph server at the given host and port.
 
             Args:
-                port (str): the port number of the Glyph Server to connect to.
-                    If the port is not given, it defaults to the environment
-                    variable PWI_GLYPH_SERVER_PORT, or 2807 if not defined.
-                auth (str): the authorization code of the Glyph Server.  If the
-                    auth is not given, it defaults to the environment variable
-                    PWI_GLYPH_SERVER_AUTH, or an empty string if not defined.
-                host (str): the host name of the Glyph Server to connect to.
-                    The default value is 'localhost'.
-                version (str): the Glyph version number to use for
-                    compatibility. The string should be of the form X.Y.Z
-                    where X, Y, and Z are positive integer values. The Y and
-                    Z values are optional and default to a zero value. A blank
-                    value always uses the current version. 
                 retries (int): the number of times to retry the connection
                     before giving up. DEPRECATED: if not None, retries will be
                     used to determine a suitable value for timeout.
