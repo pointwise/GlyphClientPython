@@ -224,6 +224,13 @@ Tcl/Glyph command:
 -  A method call on a GlyphObj that represents a Glyph object is
    translated into an instance action call on the object.
 
+*Note: Some Glyph action names conflict with Python reserved words (e.g. pw::Grid import). For conflicting action names, an underscore must be appended to the Python function name:* 
+
+.. code:: python
+
+   # This invokes "pw::Grid import $filename"
+   pw.Grid.import_(filename)
+
 Example:
 
 .. code:: python

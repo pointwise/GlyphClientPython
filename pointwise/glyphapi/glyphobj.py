@@ -402,7 +402,12 @@ class GlyphObj(object):
 
 
     def __getattr__(self, action):
-        """ Create a method on demand that mimics some Glyph action """
+        """ Create a method on demand that mimics some Glyph action.
+            Note: Glyph action names that conflict with Python reserved words
+            must be appended with an underscore. E.g.
+            
+            pw.Grid.import_(filename)
+        """
         def _action_(*args, **kwargs):
             """ Used to generate Glyph calls 'on the fly'. A JSON command is
                 created based on the GlyphObj action called. The value that
