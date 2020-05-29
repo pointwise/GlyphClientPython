@@ -28,6 +28,18 @@ implemented in Python. GlyphVar provides a way to set and access Tcl variables
 on the server, primarily for use with Glyph actions that accept Tcl variable
 names as arguments.
 
+Installation
+~~~~~~~~~~~~
+
+The easiest way to install is using PIP:
+
+.. code:: python
+
+    python -m pip install --user --upgrade pointwise-glyph-client
+
+The client can also be pulled from this repository and added to PYTHONPATH environment variable.
+
+
 Usage
 -----
 
