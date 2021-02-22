@@ -10,9 +10,8 @@ class GlyphUtility:
     tolerance = 1e-7
 
 class Vector2(object):
-    """
-    Utility functions for two dimensional vectors, which are represented
-    as a list of two real values.
+    """ Utility functions for two dimensional vectors, which are represented
+        as a list of two real values.
     """
 
     def __init__(self, *args):
@@ -172,6 +171,11 @@ class Vector2(object):
     def length(self):
         """ Return the scalar length of a vector """
         return np.linalg.norm(self.vector_)
+
+    @staticmethod
+    def zero():
+        """ Return the 2-dimensional zero vector """
+        return Vector2(0.0, 0.0)
     
     @staticmethod
     def minimum(vec1, vec2):
@@ -372,6 +376,11 @@ class Vector3(object):
         ptVec = self - Vector3(pt)
         ptProj = lineVec * ptVec.dot(lineVec)
         return (ptVec - ptProj).length()
+    
+    @staticmethod
+    def zero():
+        """ Return the 3-dimensional zero vector """
+        return Vector3(0.0, 0.0, 0.0)
     
     @staticmethod
     def minimum(vec1, vec2):
@@ -834,10 +843,14 @@ class Extents(object):
 
     def minimum(self):
         """ Return the minimum corner point of an extent box """
+        if self.box_ is None:
+            raise ValueError("Self is empty")
         return self.box_[0]
 
     def maximum(self):
         """ Return the maximum corner point of an extent box """
+        if self.box_ is None:
+            raise ValueError("Self is empty")
         return self.box_[1]
 
     def isEmpty(self):
@@ -933,6 +946,31 @@ class Extents(object):
 
         return result
 
+    def center(self):
+        """ Return the center point of the extent box
+        """
+        if self.box_ is None:
+            raise ValueError("Self is empty")
+        return (self.box_[0] / 2.0) + (self.box_[1] / 2.0)
+
+    def minimumSide(self):
+        """ Return the length of the shortest side of the box
+        """
+        if self.box_ is None:
+            raise ValueError("Self is empty")
+        return min(self.box_[0, 0]-self.box_[1, 0],
+                self.box_[0, 1]-self.box_[1, 1],
+                self.box_[0, 2], self.box_[1, 2])
+
+    def maximumSide(self):
+        """ Return the length of the longest side of the box
+        """
+        if self.box_ is None:
+            raise ValueError("Self is empty")
+        return max(self.box_[0, 0]-self.box_[1, 0],
+                self.box_[0, 1]-self.box_[1, 1],
+                self.box_[0, 2], self.box_[1, 2])
+
 
 class Transform(object):
     """ Utility functions for transform matrices, which are represented
@@ -1001,6 +1039,10 @@ class Transform(object):
     @property
     def matrix(self):
         return list(self)
+
+    def element(self, i, j):
+        """ Get an element of a transform matrix with i, j in Glyph order """
+        return self.xform_.transpose()[i, j]
 
     @staticmethod
     def translation(offset):
