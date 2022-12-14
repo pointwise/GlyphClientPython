@@ -89,4 +89,6 @@ ENV/
 .ropeproject
 
 test/*
+internal/*
 examples/BuffonNeedleExperiment.py
+README-pip
