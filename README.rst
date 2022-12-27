@@ -42,7 +42,7 @@ The client can also be pulled from this repository and added to PYTHONPATH envir
 
 
 Usage
------
+~~~~~
 
 The most basic usage of the Glyph API for Python is to:
 
@@ -79,7 +79,7 @@ Example Usage
        con.calculateDimension()
 
 Usage Notes
------------
+===========
 
 Platform Support
 ~~~~~~~~~~~~~~~~
@@ -209,6 +209,13 @@ in the following ways:
    (a Glyph object, such as **::pw::Connector_1**)
 -  When a GlyphVar's value contains a Glyph function name (Glyph object)
 -  When constructed directly using a Glyph function name (Glyph object)
+
+Notes:
+
+- The list of Glyph classes that are wrap-able with **GlyphObj** are those
+  that are returned from the Tcl command 'pw::Application getAllCommandNames'.
+  This list does not include classes that are for internal use only, nor the
+  classes that implement the Glyph Server itself (e.g., pw::Script).
 
 Examples:
 
