@@ -392,8 +392,8 @@ class GlyphObj(object):
         # convert the result back from a JSON string to a Python list
         result = json.loads(self.glf.command(json.dumps(cmd)))
 
-        # If the result is a list, convert any JSON dict elements to GlyphObj
-        # Note: this doesn't allow for nested lists of Glyph objects
+        # If the result is a list, convert any JSON dict elements to GlyphObj,
+        # allowing for nested lists
         if isinstance(result, list):
             result = [self._toPythonObj(k) for k in result]
         else:
@@ -472,7 +472,10 @@ class GlyphObj(object):
                 Python string or GlyphObj
         """
         result = tclArg
-        if GlyphObj._isGlyphFunction(tclArg):
+        # handle nested lists
+        if isinstance(result, list):
+            result = [self._toPythonObj(k) for k in result]
+        elif GlyphObj._isGlyphFunction(tclArg):
             result = GlyphObj(tclArg, self.glf)
         elif isinstance(tclArg, str):
             tclArg = tclArg.strip()
