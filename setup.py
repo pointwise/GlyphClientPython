@@ -7,7 +7,7 @@ def readme():
         return f.read()
 
 setup(name='pointwise-glyph-client',
-      version='2.0.10',
+      version='2.0.12',
       description='Glyph client in Python with Python-like API to Pointwise Glyph Server',
       url='http://github.com/pointwise/GlyphClientPython',
       install_requires=['numpy'],
@@ -18,6 +18,8 @@ setup(name='pointwise-glyph-client',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
         'Programming Language :: Python :: 2.7'],
       author='Cadence Design Systems, Inc.',
       author_email='pw-support@cadence.com')

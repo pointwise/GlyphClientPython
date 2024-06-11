@@ -92,12 +92,20 @@ class GlyphObj(object):
         if isinstance(function, dict):
             self._function = function['command']
             self._type = function['type']
+        elif isinstance(function, GlyphObj):
+            self._function = function._function
+            self._type = function._type
         else:
-            self._function = function
-            if GlyphObj._functionRE.match(function):
-                self._type = glf.eval("%s getType" % function)
-            else:
-                self._type = None
+            try:
+                self._function = function
+                if GlyphObj._functionRE.match(function):
+                    self._type = glf.eval("%s getType" % function)
+                else:
+                    self._type = None
+            except Exception:
+                print(str(type(self._function)))
+                print(str(self._function))
+                raise
 
     def __enter__(self):
         """ Glyph objects derived from pw::Mode or pw::Examine can be
