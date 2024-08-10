@@ -92,3 +92,6 @@ test/*
 internal/*
 examples/BuffonNeedleExperiment.py
 README-pip
+.gitignore
+setup.cfg
+setup.py

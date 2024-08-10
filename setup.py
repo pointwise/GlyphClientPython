@@ -22,4 +22,4 @@ setup(name='pointwise-glyph-client',
         'Programming Language :: Python :: 3.12',
         'Programming Language :: Python :: 2.7'],
       author='Cadence Design Systems, Inc.',
-      author_email='pw-support@cadence.com')
+      author_email='pw-pypi@cadence.com')
