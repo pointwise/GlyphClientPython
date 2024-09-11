@@ -1285,6 +1285,14 @@ class Transform(object):
     @staticmethod
     def mirrorPlane(plane):
         """ Return a new Transform that mirrors about a given plane """
+        if isinstance(plane,list):
+          if len(plane) == 2:
+            plane = Plane(normal=plane[0], origin=plane[1])
+          elif len(plane) == 4:
+            plane = Plane(coeffs=plane)
+        if not isinstance(plane,Plane):
+          raise ValueError("Invalid argument")
+
         return Transform.identity().mirror(plane.normal_, plane.d_)
 
     def mirror(self, normal, distance):
@@ -1309,9 +1317,9 @@ class Transform(object):
         mat[ 9] = -2.0 * normal.y * normal.z
         mat[10] = 1.0 - 2.0 * normal.z * normal.z
         mat[11] = 0.0
-        mat[12] = 2.0 * normal.x * distance
-        mat[13] = 2.0 * normal.y * distance
-        mat[14] = 2.0 * normal.z * distance
+        mat[12] = -2.0 * normal.x * distance
+        mat[13] = -2.0 * normal.y * distance
+        mat[14] = -2.0 * normal.z * distance
         mat[15] = 1.0
 
         # transpose back to Python order
